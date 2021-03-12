@@ -1,0 +1,54 @@
+version: "3.9"
+services:
+  postgresSql:
+    image: postgres
+    volumes:
+      - ./db/data:/var/lib/postgresql/data
+      - ./db/init.sh:/docker-entrypoint-initdb.d/init.sh
+    environment:
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+      PGACCOUNTSUSER: ${PGACCOUNTSUSER}
+      PGACCOUNTSDB: ${PGACCOUNTSDB}
+      PGACCOUNTSPWD: ${PGACCOUNTSPWD}
+    ports:
+      - "5432:5432"
+  accounts:
+    build:
+      context: ./accounts
+    depends_on: 
+      - postgresSql
+    environment:
+      PORT: 80
+      JWT_SECRET: potato
+      WAIT_HOSTS: ${PGHOST}:5432
+      PGHOST: ${PGHOST}
+      PGPORT: ${PGPORT}
+      PGAPPNAME: Conference GO!
+      PGDATABASE: ${PGACCOUNTSDB} 
+      PGUSER: ${PGACCOUNTSUSER}
+      PGPASSWORD: ${PGACCOUNTSPWD}
+    ports:
+      - "8080:80"
+    volumes:
+      - ./accounts/src:/usr/src/app/src
+      - ./accounts/migrations:/usr/src/app/migrations
+      - ./accounts/db:/usr/src/app/db
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # The port number, here, comes from the fact that
+        # in the ports section after this one, we map 8080
+        # on the local computer to 80 in the running
+        # container.
+        REACT_APP_API_URL: http://localhost:8080/api
+    # This depends on backend because Nginx will stop if
+    # it can't find the DNS entry named "backend" when
+    # it starts
+    depends_on: 
+      - accounts
+    ports:
+      - "8082:80"
+
+
